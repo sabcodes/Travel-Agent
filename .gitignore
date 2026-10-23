@@ -12,3 +12,4 @@ credentials.json
 *.key
 secrets/
 *.har
+tmp/hotels/

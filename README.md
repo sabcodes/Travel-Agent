@@ -1,10 +1,12 @@
 # Travel Agent Deal Tracker
 
-A free, login-free research tool and Codex skill for comparing cash flights, public award-deal reports, card and transfer offers, Airbnb result cards, and hotel search links. It does not buy, sell, hold, or book travel.
+A free, login-free research tool and Codex skill for comparing cash flights, public award-deal reports, card and transfer offers, Airbnb result cards, and Booking.com hotel/resort search quotes. It does not buy, sell, hold, or book travel.
 
 The flight-only CLI defaults to **SFO**, with 50 selectable destinations. The combined tracker defaults to SFO/SJC. Both accept custom IATA airports.
 
 Use the lightweight local browser app to choose destinations, compare flexible dates, filter saved fares, and export a CSV. The same search and filtering commands work directly in the CLI, without an agent or a frontend build.
+
+For **hotel/resort prices**, use the [Booking.com hotel CLI](#hotelresort-cli-bookingcom) below. It supports fixed stays, flexible dates, multiple destinations, saved-result filters and CSV/JSON exports. Hotel searches are CLI only.
 
 **Retrieve missing flight prices from the app.** Use **Retrieve missing prices (slower)** to check additional quotes in Chrome and update the table, filters and lowest fares. [See the demo](#recover-missing-singapore-prices-experimental).
 
@@ -16,7 +18,7 @@ Install these first:
 - **Git** to clone and update the project: [Git downloads](https://git-scm.com/downloads/).
 - An internet connection to install packages and fetch live fares. Filtering saved results works offline.
 
-For the **flight CLI and browser app only**, use [requirements-flights.txt](requirements-flights.txt); it installs `fast-flights` and its dependencies. For award feeds, hotels, and BnBs as well, use [requirements.txt](requirements.txt). Playwright is a dependency of the combined tracker, but flight searches do not require it or browser-binary downloads. The CLI and app run without travel-account credentials or an OpenAI API key; Codex is optional for using the agent skill.
+For the **flight CLI and browser app only**, use [requirements-flights.txt](requirements-flights.txt); it installs `fast-flights` and its dependencies. For the combined tracker, award feeds and BnBs, use [requirements.txt](requirements.txt). The standalone **hotel CLI needs only Python 3.10+ and no package installation**; an existing `.venv/bin/python` also works. Playwright is a dependency of the combined tracker, but flight and hotel searches do not require it or browser-binary downloads. The CLI and app run without travel-account credentials or an OpenAI API key; Codex is optional for using the agent skill.
 
 For the optional **native Chrome missing-price retry**, install [Google Chrome](https://www.google.com/chrome/) for your Mac and keep `requirements-flights.txt` up to date. It opens a separate **visible** Chrome window with a new temporary profile, drives the search, then closes its window and removes its profile. It does not attach to your open browser or require a login. Chrome's own OS requirements apply; use the default fast search if Chrome cannot run on your Mac. No Node installation or Playwright download is needed for this backend.
 
@@ -248,7 +250,7 @@ The October 13, 2026 evaluation found no cheaper starting quotes and no recovere
 | Award deals | Attributed reports from public travel-news feeds | Reports are leads, not confirmed live award seats |
 | Card and transfer offers | Public Chase, American Express, Capital One, and loyalty-program promotions | Relevance does not prove an itinerary is bookable with points |
 | Airbnb | Up to three public result cards under the nightly budget | Totals may be estimates and can exclude final fees or taxes |
-| Hotels | Date- and guest-aware Google Hotels links | Search handoff only; no hotel prices are retrieved |
+| Hotels/resorts | Standalone `hotel_tools.py` CLI retrieves Booking.com property/rate quotes | Displayed party/stay prices; final fees and terms remain unverified. Legacy `main.py --stays` still returns Google Hotels links |
 
 Flight results are ranked deterministically by cash price, then fewer stops, shorter total journey, and airline name. Airbnb results are deduplicated by listing ID and ranked by nightly price, total price, and listing ID.
 
@@ -346,6 +348,10 @@ $deal-tracker Compare flights and Airbnb stays for four adults in St. Lucia from
 $deal-tracker Search the flight destination pool for January trips lasting six calendar days. Use a lite five-day departure grid and save the comparison matrix.
 ```
 
+```text
+$deal-tracker Find the ten cheapest observed five-star hotels or resorts in Maui for four adults, January 11–15, 2027. Show room counts, known excluded charges and coverage; save the full quotes.
+```
+
 The skill translates the request into deterministic CLI arguments, runs the checked-in Python tools, and summarizes the structured result. The Python scripts are local workspace tools; this repository does not require an MCP server, Codex plugin, Booking.com credential, or OpenAI API key.
 
 ### Optional: install the skill for every Codex project
@@ -355,9 +361,10 @@ To make a copy available from the user-level Codex skills directory:
 ```bash
 mkdir -p "$HOME/.codex/skills/deal-tracker"
 cp .agents/skills/deal-tracker/SKILL.md "$HOME/.codex/skills/deal-tracker/SKILL.md"
+cp -R .agents/skills/deal-tracker/references "$HOME/.codex/skills/deal-tracker/"
 ```
 
-The user-level copy does not update automatically. Repeat the copy after pulling repository changes. The project-local version is recommended because it stays synchronized with the code and configuration.
+The user-level copy does not update automatically. Repeat both copies after pulling repository changes and run the tools from this repository root. Documentation links in the references are relative to the project-local skill; open the corresponding files under this repository's `docs/` when using a user-level copy. The project-local version is recommended because it stays synchronized with the code and configuration.
 
 ### If Codex does not detect the skill
 
@@ -501,11 +508,84 @@ cp config.json config.local.json
 
 Do not replace the checked-in SFO/SJC defaults with personal airports merely to run a private search.
 
-## Booking.com Status
+## Hotel/resort CLI (Booking.com)
 
-Booking.com is not currently used. Its official Demand API can return accommodation inventory, but production and sandbox access require registration as a Booking.com Managed Affiliate Partner, Partner Centre access, an API token, and an affiliate ID. See Booking.com's [prerequisites](https://developers.booking.com/demand/docs/getting-started/prerequisites) and [authentication guide](https://developers.booking.com/demand/docs/development-guide/authentication).
+The experimental **CLI-only** [hotel_tools.py](hotel_tools.py) retrieves Booking.com hotel/resort search quotes through the website's read-only search operation. It uses Python's standard library: no browser, extra package, API key, account, captured cookie or security workaround is required. It runs independently of flights; the flight UI and legacy `main.py --stays` retain their current behavior.
 
-Until authenticated access is configured, hotel output remains a clearly labeled Google Hotels search handoff rather than a ranked hotel-price result.
+```bash
+# From the project folder; Python 3.10+ is sufficient.
+mkdir -p tmp/hotels
+.venv/bin/python hotel_tools.py search --location 'Cabo San Lucas, Mexico' \
+  --check-in 2027-01-15 --check-out 2027-01-19 --adults 4 --rooms 1 \
+  --max-pages 5 --progress-json --output tmp/hotels/cabo.json
+
+# Replay saved quotes locally; retain only all-inclusive resorts offering one room.
+.venv/bin/python hotel_tools.py filter --input tmp/hotels/cabo.json \
+  --property-types resort --meal-plan all-inclusive --exact-rooms --format table
+
+# Export retained quotes with rate terms, provenance and coverage.
+.venv/bin/python hotel_tools.py filter --input tmp/hotels/cabo.json \
+  --format csv --output tmp/hotels/cabo.csv
+```
+
+Hotels and resorts are selected by default. Optional filters include other property types, meal plans, star ratings, minimum review score, free-cancellation badges, exact room counts and displayed nightly/total price ceilings. Use location names rather than airport codes; optional explicit Booking.com destination IDs pin ambiguous places. `--children-ages` and `--currency` are supported. Search defaults to at most three pages of 20 results; partial coverage is explicit. JSON retains raw candidates for repeatable local filtering, including `--clear-filters`. `--output` saves the selected format; only JSON can be replayed.
+
+### Fixed dates, ratings and ten distinct properties
+
+Five calendar days means four nights. These commands request four adults; child ages must be supplied separately when children travel. Replace `.venv/bin/python` with `python3` if using a standalone Python 3.10+ installation.
+
+```bash
+.venv/bin/python hotel_tools.py destinations
+.venv/bin/python hotel_tools.py search --help
+
+# Four-star or better in Cancún, four adults, five calendar days.
+.venv/bin/python hotel_tools.py search --location 'Cancun, Mexico' \
+  --check-in 2027-01-11 --check-out 2027-01-15 --adults 4 --rooms 1 \
+  --stars 4,5 --snapshot tmp/hotels/cancun.json --format summary
+
+# Up to ten distinct five-star Maui properties, cheapest observed first.
+.venv/bin/python hotel_tools.py search --location 'Maui, Hawaii' \
+  --check-in 2027-01-11 --check-out 2027-01-15 --adults 4 --stars 5 \
+  --unique-properties --max-results 10 \
+  --snapshot tmp/hotels/maui.json --format summary
+
+# Filter saved quotes without network; prices are for the complete party/stay.
+.venv/bin/python hotel_tools.py filter --input tmp/hotels/cancun.json \
+  --max-total-price 2000 --format table
+```
+
+### Flexible dates and multiple destinations
+
+Use `hotel_tools.py destinations` for verified geography aliases. Maui is pinned to its island region rather than a similarly named hotel. `--unique-properties --max-results 10` returns up to ten distinct properties. The `compare` command handles multiple locations and flexible dates with per-search coverage and destination/global minima; its date bounds contain the entire stay. Five calendar days means four nights:
+
+```bash
+.venv/bin/python hotel_tools.py compare --location 'Maui, Hawaii' \
+  --start-date 2027-01-01 --end-date 2027-01-31 --nights 4 --adults 4 \
+  --stars 5 --unique-properties --max-results 10 --dry-run
+```
+
+This previews 27 eligible check-ins; omit `--dry-run` for live retrieval and add `--output tmp/hotels/maui-january.json` to save it. Repeat `--location` to compare places. Search and comparison JSON support the same offline filters and CSV export. Export-only filtering preserves saved limits; `--all-results` removes just the result cap, while `--clear-filters` resets limits and local filters. The [ten realistic hotel evaluations](docs/hotel-use-cases.md) document subagent trials, gaps and fixes.
+
+```bash
+# Same fixed stay in two destinations; retain each destination's minimum.
+.venv/bin/python hotel_tools.py compare \
+  --location 'Maui, Hawaii' --location 'San Juan, Puerto Rico' \
+  --start-date 2027-01-11 --end-date 2027-01-15 --nights 4 --adults 4 \
+  --snapshot tmp/hotels/two-destinations.json --format summary
+
+.venv/bin/python hotel_tools.py filter --input tmp/hotels/two-destinations.json \
+  --format csv --output tmp/hotels/two-destinations.csv
+```
+
+The comparison date bounds contain check-in **and checkout**. A daily January grid checks every eligible start within those bounds; `--date-step-days` above one samples dates. Use `--dry-run` to inspect request counts before fetching. Page caps still limit property coverage for each date, so a complete date grid does not prove exhaustive hotel inventory.
+
+For compact agent output, use `--snapshot tmp/hotels/result.json --format summary`: the full replayable JSON stays on disk while stdout contains prices, terms, coverage and timing. The [timing and efficiency scorecard](docs/hotel-skill-evaluation.md) includes all ten measured workflows, output-size comparisons and independent skill evaluations. Run `evaluate_hotel_skill.py --help` for repeatable live/replay/plan checks; summaries are not substitutes for the saved full snapshot.
+
+Prices are **displayed totals for the party and complete stay**; nightly amounts divide by checkout minus check-in. Offers can contain more rooms than requested. Excluded charges are separate, included taxes are not added again, and `final_payable_total` stays unknown. Compare room/rate terms and fee status alongside price. Successful HTTP 200 responses alone do not establish usable inventory: scope mismatches, missing prices, verification pages, GraphQL errors and rate limits are reported explicitly. Ctrl-C retains completed pages in the selected output; page progress goes to stderr.
+
+Verified October 22, 2026: four Cabo pages returned 80 rows (79 distinct offers, 73 hotel/resort offers after local filtering); one-page Cancún checks retrieved USD quotes for two adults/one room and EUR quotes for four adults/two rooms plus an eight-year-old child. These are limited live observations. The [HAR findings, coverage limits and repeatable checks](docs/booking-hotel-pricing.md) include historical import commands. Generated snapshots under `tmp/hotels/` and raw HARs are ignored by Git.
+
+This website operation is undocumented and its persisted query identifier can change; denial or schema errors require investigation. The separate official Demand API requires managed affiliate registration and credentials: see Booking.com's [prerequisites](https://developers.booking.com/demand/docs/getting-started/prerequisites) and [authentication guide](https://developers.booking.com/demand/docs/development-guide/authentication).
 
 ## Notifications
 

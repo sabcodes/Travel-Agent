@@ -1,12 +1,13 @@
 # Public awards, offers, and stays
 
-Read this reference when the request includes these lanes. Use `main.py` with explicit modes and `--json --output PATH`; the saved file is canonical because legacy workflows can log to stdout. Cash-only work uses `flight_tools.py`.
+Read this reference when the request includes these lanes. Awards, offers and Airbnb use `main.py` with explicit modes and `--json --output PATH`; the saved file is canonical because legacy workflows can log to stdout. Hotel quotes use `hotel_tools.py`; cash-only work uses `flight_tools.py`.
 
 | Need | Mode | Evidence |
 |---|---|---|
 | Public award stories | `--award-deals` | Reported leads requiring live verification |
 | Issuer offers or transfer bonuses | `--deals` | Public promotions |
 | Stay research | `--stays` | Public Airbnb cards and hotel/Airbnb links |
+| Hotel/resort prices | `hotel_tools.py search` | Booking.com displayed party/stay quotes; independent of flights |
 | Cash + awards + offers, excluding stays | `--flights --award-deals --deals` | Explicit flags keep stays out |
 
 No primary flag runs all configured scanners, including stays. This configuration retains 12 regions/15 airports; the cash-only pool is separate. Named destinations constrain the run to those selections.
@@ -41,6 +42,8 @@ Use public RSS/Atom metadata and attributed links. Identify requests as `TravelA
 Tag offers with matching issuers: Chase, American Express, and/or Capital One. Preserve the Chase partner cross-reference. `chase_partner_info` describes possible programs, not points prices, live inventory, or proof of award bookability. A bonus is relevant only when its receiving program overlaps a usable program for that itinerary; issuer/alliance membership alone is insufficient.
 
 ## Stay evidence
+
+For hotel/resort quotes, use the standalone `hotel_tools.py` CLI. Read [Booking.com commands and price semantics](../../../../docs/booking-hotel-pricing.md) before searching or comparing hotels. It defaults to hotels/resorts and supports dates, adults, rooms, child ages, currency and optional filters. Use JSON for provenance and replay; `filter` and CSV export run locally. Inspect offered rooms, excluded charges, incomplete terms and coverage alongside displayed prices. HAR imports are historical evidence. This CLI has no UI and needs no browser, account, token or added dependency.
 
 `--stays` enables flights internally. Preserve flight failures in `source_errors` and independently report hotel/Airbnb search links. Hotel links are handoffs, not ranked live prices. Public Airbnb cards can include room type, beds, bedrooms, bathrooms, approximate coordinates; `--stay-details` requests richer public details.
 
