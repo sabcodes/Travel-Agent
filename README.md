@@ -52,7 +52,7 @@ Verify setup with a network-free search preview:
 
 Continue with the browser app or flight CLI below, or see [Load the Skill in Codex](#load-the-skill-in-codex) for agent setup. Install `requirements.txt` instead when using the combined tracker.
 
-## Recover missing Singapore prices (experimental)
+## Recover missing prices (experimental)
 
 When a search returns flights without prices, the optional browser check can retrieve additional quotes. In the example below, it found five priced Singapore Airlines outbound options for SFO–Dhaka, with Singapore selected for both directions. The same feature is available in the app and CLI.
 
